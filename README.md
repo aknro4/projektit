@@ -1,7 +1,7 @@
 # Aaron tehdyt projektit
 
 Tässä on projekteja mitä olen koulussa tehnyt/oppinut viimeisen parin vuoden aikana. 
-mitä itse omatoimisesti olen harjoitellut niin java,
+Mitä itse omatoimisesti olen harjoitellut niin java,
 ja koulussa perus HTML,CSS,php, Javascript, c# ja sqllää.
 Nyt kesken on graaffinen käyttöliittymä missä teemme tetris pelin lopputyöksi.
 
