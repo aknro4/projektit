@@ -1,0 +1,23 @@
+CREATE TABLE Rastit (
+	rasti_id INT NOT NULL PRIMARY KEY IDENTITY(1,1),
+	osallistuja_id INT NOT NULL,
+	Lahtoaika varchar(150),
+	Rasti1 varchar(150),
+	Rasti2 varchar(150),
+	Rasti3 varchar(150),
+	Rasti4 varchar(150),
+	Rasti5 varchar(150),
+	Rasti6 varchar(150),
+	Rasti7 varchar(150),
+	Rasti8 varchar(150),
+	Rasti9 varchar(150),
+	Rasti10 varchar(150),
+	Loppuaika varchar(150)
+);
+
+ALTER TABLE Suunnistus
+ADD RastitID INT;
+
+ALTER TABLE Suunnistus
+ADD CONSTRAINT FK_Suunnistus_Kisa FOREIGN KEY (RastitID)
+	REFERENCES Rastit(rasti_id);

@@ -1,0 +1,20 @@
+CREATE TABLE Sarja (
+	sarja_id INT NOT NULL PRIMARY KEY,
+	sarja_nimi VARCHAR(150) NOT NULL
+);
+
+INSERT Sarja (sarja_id,sarja_nimi)
+VALUES 
+	(1, 'Miehet'),
+	(2,'Naiset')
+;
+
+UPDATE Suunnistus 
+SET Sarja = 1 WHERE sarja = 'Miehet';
+
+UPDATE Suunnistus
+SET Sarja = 2 WHERE Sarja = 'Naiset';
+
+ALTER TABLE Suunnistus
+ADD CONSTRAINT FK_Sunnistus_sarja FOREIGN KEY (sarja)
+	REFERENCES sarja(sarja_id);
