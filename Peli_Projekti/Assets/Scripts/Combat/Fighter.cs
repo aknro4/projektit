@@ -57,7 +57,7 @@ namespace RPG.Combat
             transform.LookAt(target.transform);
             if (timeSinceLastAttack > timeBetweenAttacks)
             {
-                //Triggers hit()/Animation event
+                //Triggeroi hit()/Animaatio eventti
                 TriggerAttack();
                 timeSinceLastAttack = 0;
             }
