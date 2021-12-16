@@ -1,0 +1,2 @@
+Tämän tehtävän tarkoitus oli vain kertausta mitä ollaan opittu tähän mennessä joten teimme pelkästään consoli ohjelmia.
+Yksinkertainen matikkapeli josta nyt joulu - tammikuussa olisi tarkoitus tehdä graaffinen käyttöliittymä
