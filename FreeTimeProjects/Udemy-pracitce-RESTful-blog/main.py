@@ -12,13 +12,14 @@ app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
 ckeditor = CKEditor(app)
 Bootstrap(app)
 
-##CONNECT TO DB
+
+# CONNECT TO DB
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
-##CONFIGURE TABLE
+# CONFIGURE TABLE
 class BlogPost(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(250), unique=True, nullable=False)
@@ -29,7 +30,9 @@ class BlogPost(db.Model):
     img_url = db.Column(db.String(250), nullable=False)
 
 
-##WTForm
+# WTForm
+# Some reason body adds extra <p> tags so the edits made for the body text will not be shown
+# Example styles will be just in default text style
 class CreatePostForm(FlaskForm):
     title = StringField("Blog Post Title", validators=[DataRequired()])
     subtitle = StringField("Subtitle", validators=[DataRequired()])
@@ -54,18 +57,19 @@ def show_post(post_id):
     return render_template("post.html", post=requested_post)
 
 
+# Just a route to about me page.
 @app.route("/about")
 def about():
     return render_template("about.html")
 
 
-# This obviously doesn't work, just a visual example
+# This obviously doesn't work, just a visual example. But you could try to contact someone somewhere
 @app.route("/contact")
 def contact():
     return render_template("contact.html")
 
 
-# Way to create new post.
+# Create new post.
 @app.route("/make-post", methods=["GET", "POST"])
 def make_post():
     form = CreatePostForm()
@@ -77,14 +81,14 @@ def make_post():
             title=form.title.data,
             subtitle=form.subtitle.data,
             body=form.body.data,
-            # url preventing posting stuff...?
+            # url preventing posting stuff...? somehow fixed I think? It truly needs to be an image link
             img_url=form.img_url.data,
             author=form.author.data,
             date=date.today().strftime("%B %d, %Y")
         )
         db.session.add(new_post)
         db.session.commit()
-        # Redirecting back to homepage
+        # Redirecting back to homepage after post has been created
         return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, title=title)
 
@@ -105,6 +109,7 @@ def edit_post(post_id):
     )
     # even if no changes were made we update the article to database
     # We don't update the date so the original date will be kept when the article was posted
+    # So I guess you could add new date called last time edited. But I'm lazy so not going to happen
     if edit_form.validate_on_submit():
         post.title = edit_form.title.data
         post.subtitle = edit_form.subtitle.data
@@ -117,7 +122,7 @@ def edit_post(post_id):
     return render_template("make-post.html", form=edit_form, title=title)
 
 
-# able to delete articles by pressing the ✘
+# able to delete articles by pressing the ✘ and deletes it from the database as well
 @app.route("/delete/<post_id>")
 def delete_post(post_id):
     post = BlogPost.query.get(post_id)
