@@ -1,37 +1,9 @@
-Projektit tehty python versiolla 3.9 mutta toimii varmasti 3.10 versiossa 
+## These projects are part of https://www.udemy.com/course/100-days-of-code/  
 
-Suurin osa tässä kansiossa olevat projektit on tehty udemy kurssilla jonka ostin. 
-Tämä kurssi oli/on 100 päivän bootcamp jonka voi tietysti omaan tahtiin suorittaa. 
-Tässä vielä linkki jos haluat itse käydä kurkistamassa https://www.udemy.com/course/100-days-of-code/
-Koin erittäin hyödyllisenä ja opin erittäin paljon, myös itseluottamusta sain kasvatettua. 
+<p> <b> Project to highlight </p> 
 
-Aika laajasti kävi aiheita ihan basic/beginner ja eteni aika tiuhaan tahtiin haastavempiin tehtäviin.
-Tässä kansiossa ei ole alkupään tehtäviä jossa opeteltiin Pythonin perus koodausta. 
-Ja jostain syystä kaikki tehtävät ei näy gitissä joita olisin halunnut myös näyttää.
+ <b> Udemy-practice-RESTful-blog - This is blog page where you can post your own blogs </b>
 
-Kaikkiin projekteihin en ole kommentoinut mitään jos projekti on vaikuttanut yksinkertaiselta, mutta jos olen kommentoinut jotain olen sen englanniksi tehnyt.
-Also, osa tehtävistä on API tehtäviä ja joihinkin näihin tarvii vahvistuksen ja uudestaan sisään kirjautumisen niin nämä projektit ei välttämättä toimi. 
+Currenltly missing snake game project
 
-Projektin nimet on minun mielestä hyviä ja kertoo hyvin mitä siinä projektissa on harjoiteltu, 
-joten saa vapaasti tutkia mutta siinä tosiaan voi hekti mennä jos kaikki tehtävät käytte läpi niin
-nostan esiin muutaman tehtävän mitkä oli enemmän haastavempia ja isompia kokonaisuudessaan
-
-Udemy-practice-RESTful-blog - Tämä on blog verkkosivusto missä käyttäjät itse voivat luoda omia blogeja ja valita oman kansi kuvan blogilleen. 
-                              Blogit tallentuvat tietokantaan. 
-                              
-                              Toinen vastaava projekti taitaa puuttua missä tehtiin tinder kotisivu, 
-                              mutta koirille totutus pelkkää html harjoittelua ja eri kirjastojen/pakettien käyttöä
-
-snake peli - jota valitettavasti ei jostain syystä näy mutta voin luoda toisen kansion johon kerään puuttuvat projektit. 
-             Tässä enemmän perusohjelmointia jossa käytettiin olioohjelmointia classeja monia functioneita yms...
-             Toinen vastaava on coffee machine projekti joka myös näköjään upuu joka on täysin console based projekti.
-
-udemy-practice-spotify-playlist - API projekti, oma suosikki tehtävä. En ole varma toimiiko teille authorisointi syistä, 
-                                  mutta idea on että sivusta johon on listattu top 100 kappaletta tietyltä ajalta mitä on soitettu radioissa scrapataan 
-                                  tämä ajankohta kysytään siis käyttäjältä
-                                  ja otetaan siitä tiedot talteen ja tehdään tarvittavat haku hommat spotifyn apin kautta ja luodaan playlist minun käyttäjälle.
-                                  
-Mitä projekteja välttäisin on api projektit mutta en estä niitä katsomasta. 
-                                  
-Näitä "isompia" projekteja mitä kesän aikana tein on noin 45 yhteensä eli noin puolet puuttuu. 
-Eli jos kaipaatte lisää materiaalia mitä tutkia niin voin ne tosiaan yrittää lisätä tänne tai kysyä suoraan minulta mitä halautte nähdä voin sen teille etsiä.
+Most of the projects are APIs and those API projects were one of my favourites or have little to no meaning in terms of challenge                                  
