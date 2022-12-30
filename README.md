@@ -1,3 +1,3 @@
-# Aaron tehdyt projektit
+# Most of my projects so far
 
-Projekteja mitä on kerääntynyt matkan varrelta opintojen aikana ja myös projekteja mitä olen omalla ajallani saanut aikaiseksi
+Projects that have been done for school and some that I have done during my free time
