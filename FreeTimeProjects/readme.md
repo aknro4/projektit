@@ -1,8 +1,8 @@
 ## These projects are part of https://www.udemy.com/course/100-days-of-code/  
 
-<p> <b> Project to highlight </p> 
+<b> Project to highlight 
 
- <b> Udemy-practice-RESTful-blog - This is blog page where you can post your own blogs </b>
+Udemy-practice-RESTful-blog - This is blog page where you can post your own blogs </b>
 
 Currenltly missing snake game project
 
