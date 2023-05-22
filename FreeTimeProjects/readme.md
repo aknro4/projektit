@@ -4,5 +4,4 @@
 
 Udemy-practice-RESTful-blog - This is blog page where you can post your own blogs </b>
 
-Currenltly missing snake game project
                         
