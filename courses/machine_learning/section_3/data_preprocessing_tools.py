@@ -69,7 +69,6 @@ print("y train set \n", y_train, "\n y test set \n", y_test)
 
 # Feature scaling
 scaler = StandardScaler()
-
 # Do not use encoded "Dummy" values/data on Feature Scaling! It will ruin the data
 X_train[:, 3:] = scaler.fit_transform(X_train[:, 3:])
 X_test[:, 3:] = scaler.transform(X_test[:, 3:])
