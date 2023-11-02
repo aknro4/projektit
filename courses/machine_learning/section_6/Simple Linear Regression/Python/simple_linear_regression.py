@@ -42,5 +42,3 @@ plt.title("Years of Experience vs Salary (Test set)")
 plt.xlabel("Years of Experience")
 plt.ylabel("Salary")
 plt.show()
-
-
