@@ -12,7 +12,7 @@ data_csv = "Data.csv"
 dataset = pd.read_csv(data_csv)
 
 # Matrix of features and dependent viable vector
-# Data to learn from (features), take all data expect last column
+# Data to learn from (features) or independent values, take all data expect last column
 X = dataset.iloc[:, :-1].values
 # Data to predict (dependent variable vector), take all data from last column
 y = dataset.iloc[:, -1].values
