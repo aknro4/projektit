@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # Import data
 dataset = pd.read_csv("data.csv")
 
-# Extracting features (X) and target variable (y)
+# Extracting features (X) and independent variable (y)
 X = dataset.iloc[:, :-1].values
 y = dataset.iloc[:, -1].values
 
