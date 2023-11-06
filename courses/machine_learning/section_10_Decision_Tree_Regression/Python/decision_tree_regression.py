@@ -1,3 +1,7 @@
+# Some notes.
+# Decision Tree does not preform well on small datasets and
+# should mostly be used on dataset that have multiple features
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,12 +15,13 @@ X = dataset.iloc[:, 1:-1].values
 y = dataset.iloc[:, -1].values
 
 # Fitting the regression model to the dataset
-regressor = DecisionTreeRegressor(max_depth=2)
-regressor_1 = DecisionTreeRegressor(max_depth=5)
+regressor = DecisionTreeRegressor(max_depth=2, random_state=0)
+regressor_1 = DecisionTreeRegressor(max_depth=5, random_state=0)
 regressor.fit(X, y)
 regressor_1.fit(X, y)
 
 # Predicting new result with regression model
+# No trasformation method needed because we did not use feature scaling this time
 y_pred = regressor.predict([[6.5]])
 y_pred_1 = regressor_1.predict([[6.5]])
 print(y_pred)
