@@ -53,7 +53,6 @@ y_train = sc_y.fit_transform(y_train)
 
 
 # Initial Training
-
 # Define custom loss function
 # Some notes about this function
 # threshold_milliseconds: Threshold value, max allowable difference between true and predicted value, 200 seems ok
@@ -85,6 +84,8 @@ model.compile(optimizer='adam', loss=custom_loss, metrics=['mae'])
 # batch_size: NUmber of samples used in each iteration for updating the models weights.
 model.fit(X_train, y_train, epochs=125, batch_size=32, validation_data=(X_test, y_test))
 
+# Second model SOON TM
+
 # Check predictions
 y_pred = model.predict(X_test)
 y_pred = sc_y.inverse_transform(y_pred)
@@ -95,7 +96,7 @@ print(y_test[:5])
 
 # Single value prediction
 # first value is driver, second value is track, constructor is third
-single_input = np.array([[64, 8, 28], [817, 71, 9]])
+single_input = np.array([[64, 8, 28], [817, 71, 9],[102,8,131]])
 single_input_standardized = sc_X.transform(single_input)
 predicted_output_standardized = model.predict(single_input_standardized)
 predicted_output = sc_y.inverse_transform(predicted_output_standardized)
