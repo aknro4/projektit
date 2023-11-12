@@ -93,30 +93,70 @@ def custom_loss(y_true, y_pred, threshold_milliseconds=200):
     # Absolute difference between true and predicted values
     error = tf.abs(y_true - y_pred)
     penalty = tf.where(error <= threshold_milliseconds,
-                       0.2 * tf.math.pow(error / threshold_milliseconds, 2),  # Quadratic penalty term
-                       error - 0.2 * threshold_milliseconds)  # Linear penalty term
+                       0.1 * tf.math.pow(error / threshold_milliseconds, 2),  # Quadratic penalty term
+                       error - 0.1 * threshold_milliseconds)  # Linear penalty term
+
     return tf.reduce_mean(penalty)
 
 
-# Create a simple regression model
-model = tf.keras.Sequential([
+# Initial model: Create a simple regression model
+initial_model = tf.keras.Sequential([
     tf.keras.layers.Dense(100, activation='relu', input_shape=(X_train.shape[1],)),
     tf.keras.layers.Dense(100, activation='relu', name='hidden_layer_1'),
-    tf.keras.layers.Dense(3, activation='linear')  # The 3 values to predict
+    tf.keras.layers.Dropout(0.2),  # Adding dropout for regularization
+    tf.keras.layers.Dense(3, activation='linear')
 ])
 
 # Compile the model using the custom loss function and custom learning rate
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)  # Adjust the learning rate as needed
-model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
+initial_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 # Train the model
 # epochs: number of iterations over the entire training set
 # batch_size: NUmber of samples used in each iteration for updating the models weights.
-model.fit(X_train, y_train, epochs=1000, batch_size=20, validation_data=(X_test, y_test))
+initial_model.fit(X_train, y_train, epochs=200, batch_size=20, validation_data=(X_test, y_test))
+
+# Second model
+# Use the initial model to make predictions on the training set
+predicted_q2q3 = initial_model.predict(X_train)
+predicted_q2q3 = sc_y.inverse_transform(predicted_q2q3)
+predicted_q2q3[predicted_q2q3 < 5000] = 0
+
+print(predicted_q2q3)
+predicted_q2q3 = sc_y.transform(predicted_q2q3)
+
+# Create a mask to filter out rows where q2 or q3 is predicted as 0
+mask_q2 = predicted_q2q3[:, 1] != 0
+mask_q3 = predicted_q2q3[:, 2] != 0
+
+# Apply the masks to exclude rows with true 0 values
+X_train_stacked = np.concatenate((X_train[mask_q2 & mask_q3], predicted_q2q3[mask_q2 & mask_q3]), axis=1)
+y_train_stacked = y_train[mask_q2 & mask_q3]
+
+print(X_train_stacked.shape)
+print(y_train_stacked.shape)
+
+second_model = tf.keras.Sequential([
+    tf.keras.layers.Dense(6, activation='relu', input_shape=(X_train_stacked.shape[1],)),
+    tf.keras.layers.Dense(100, activation='relu', name='hidden_layer_1'),
+    tf.keras.layers.Dense(100, activation='relu', name='hidden_layer_2'),
+    tf.keras.layers.Dropout(0.2),  # Adding dropout for regularization
+    tf.keras.layers.Dense(3, activation='linear')
+])
+
+# Compile the model using the custom loss function and custom learning rate
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)  # Adjust the learning rate as needed
+second_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
+
+# Train the second model
+second_model.fit(X_train_stacked, y_train_stacked[:, 1], epochs=100, batch_size=20,
+                 validation_data=(X_test, y_test[:, 1]))
+
 
 # Check predictions
-y_pred = model.predict(X_test)
+y_pred = second_model.predict(X_test)
 y_pred = sc_y.inverse_transform(y_pred)
-y_pred[y_pred < 0] = 0
+# If the prediction is less than 5s I consider that as a 0. Should be larger thought
+y_pred[y_pred < 5000] = 0
 
 # Inverse transform
 X_test = sc_X.inverse_transform(X_test)
@@ -132,13 +172,13 @@ print(milliseconds_to_time_string(y_test[a:a + 15]))
 r2 = r2_score(y_test, y_pred)
 print("R2 score: ", r2)
 
-model.save('models/modern_f1_era_quali_model.keras')
+second_model.save('models/modern_f1_era_quali_model.keras')
 
 # Single value prediction
 # first value is driver, second value is track, constructor is third
 single_input = np.array([[64, 8, 28], [817, 71, 9]])
 single_input_standardized = sc_X.transform(single_input)
-predicted_output_standardized = model.predict(single_input_standardized)
+predicted_output_standardized = second_model.predict(single_input_standardized)
 predicted_output = sc_y.inverse_transform(predicted_output_standardized)
 
 # Print the predictions
