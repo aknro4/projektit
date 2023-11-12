@@ -6,6 +6,8 @@ import tensorflow as tf
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.layers import Input, concatenate, Dense, Dropout
+from tensorflow.keras.models import Model
 
 dataset = pd.read_csv("f1db_csv/qualifying.csv")
 races_dataset = pd.read_csv("f1db_csv/races.csv")
@@ -64,6 +66,7 @@ def milliseconds_to_time_string(milliseconds_2d_array):
     return time_strings_2d
 
 
+# Recommends map instead of appymap
 y = y.applymap(time_string_to_milliseconds)
 
 # Transform to same type as X
@@ -71,6 +74,9 @@ y = y.values
 
 # Splitting the data into Training set and test set
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+print(y_train)
+print(X_train)
 
 # Feature Scaling
 sc_X = StandardScaler()
@@ -80,6 +86,10 @@ X_test = sc_X.transform(X_test)
 y_train = sc_y.fit_transform(y_train)
 y_test = sc_y.transform(y_test)
 
+# Train first whit only tracks
+X_train_tracks = X_train[:, 1:2]
+X_test_tracks = X_test[:, 1:2]
+
 
 # Initial Training
 # Define custom loss function
@@ -88,72 +98,103 @@ y_test = sc_y.transform(y_test)
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
 # in this case error <= threshold_milliseconds
 def custom_loss(y_true, y_pred, threshold_milliseconds=200):
-    # y_pred = tf.cast(y_pred, dtype=tf.int64)  # Cast y_pred to int64
     y_true = tf.cast(y_true, dtype=tf.float32)  # Cast y_true to float32
-    # Absolute difference between true and predicted values
     error = tf.abs(y_true - y_pred)
-    penalty = tf.where(error <= threshold_milliseconds,
-                       0.1 * tf.math.pow(error / threshold_milliseconds, 2),  # Quadratic penalty term
-                       error - 0.1 * threshold_milliseconds)  # Linear penalty term
 
-    return tf.reduce_mean(penalty)
+    # Quadratic penalty term for values close to zero.
+    quadratic_penalty = tf.where((y_true != -1.59967049) & (y_true != -0.93527763) & (error <= threshold_milliseconds),
+                                 0.1 * tf.math.pow(error / threshold_milliseconds, 2),
+                                 0.0)
+
+    # Linear penalty term for other values
+    linear_penalty = tf.where((y_true != -1.59967049) & (y_true != -0.93527763) & (error > threshold_milliseconds),
+                              error - 0.1 * threshold_milliseconds,
+                              0.0)
+
+    return tf.reduce_mean(quadratic_penalty + linear_penalty)
 
 
-# Initial model: Create a simple regression model
-initial_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(100, activation='relu', input_shape=(X_train.shape[1],)),
-    tf.keras.layers.Dense(100, activation='relu', name='hidden_layer_1'),
+# Track model: Trains based on only tracks
+track_model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(X_train_tracks.shape[1],),
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal'),
+    tf.keras.layers.Dense(64, activation='relu', name='hidden_layer_1',
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal'),
+    tf.keras.layers.Dense(64, activation='relu', name='hidden_layer_2',
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal'),
     tf.keras.layers.Dropout(0.2),  # Adding dropout for regularization
-    tf.keras.layers.Dense(3, activation='linear')
+    tf.keras.layers.Dense(3, activation='linear',
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal')
 ])
 
 # Compile the model using the custom loss function and custom learning rate
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)  # Adjust the learning rate as needed
-initial_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
-# Train the model
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)  # Adjust the learning rate as needed
+track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
+# Train the track model
 # epochs: number of iterations over the entire training set
-# batch_size: NUmber of samples used in each iteration for updating the models weights.
-initial_model.fit(X_train, y_train, epochs=200, batch_size=20, validation_data=(X_test, y_test))
+# batch_size: Number of samples used in each iteration for updating the models weights.
+track_model.fit(X_train_tracks, y_train, epochs=250, batch_size=17, validation_data=(X_test_tracks, y_test))
 
-# Second model
-# Use the initial model to make predictions on the training set
-predicted_q2q3 = initial_model.predict(X_train)
-predicted_q2q3 = sc_y.inverse_transform(predicted_q2q3)
-predicted_q2q3[predicted_q2q3 < 5000] = 0
-
-print(predicted_q2q3)
-predicted_q2q3 = sc_y.transform(predicted_q2q3)
-
-# Create a mask to filter out rows where q2 or q3 is predicted as 0
-mask_q2 = predicted_q2q3[:, 1] != 0
-mask_q3 = predicted_q2q3[:, 2] != 0
-
-# Apply the masks to exclude rows with true 0 values
-X_train_stacked = np.concatenate((X_train[mask_q2 & mask_q3], predicted_q2q3[mask_q2 & mask_q3]), axis=1)
-y_train_stacked = y_train[mask_q2 & mask_q3]
-
-print(X_train_stacked.shape)
-print(y_train_stacked.shape)
-
-second_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(6, activation='relu', input_shape=(X_train_stacked.shape[1],)),
-    tf.keras.layers.Dense(100, activation='relu', name='hidden_layer_1'),
-    tf.keras.layers.Dense(100, activation='relu', name='hidden_layer_2'),
+# initial Model that train all values
+initial_model = tf.keras.Sequential([
+    tf.keras.layers.Dense(128, activation='relu', input_shape=(X_train.shape[1],),
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal'),
+    tf.keras.layers.Dense(64, activation='relu', name='hidden_layer_1',
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal'),
+    tf.keras.layers.Dense(64, activation='relu', name='hidden_layer_2',
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal'),
     tf.keras.layers.Dropout(0.2),  # Adding dropout for regularization
-    tf.keras.layers.Dense(3, activation='linear')
+    tf.keras.layers.Dense(3, activation='linear',
+                          kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                          kernel_initializer='he_normal')
 ])
 
-# Compile the model using the custom loss function and custom learning rate
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)  # Adjust the learning rate as needed
-second_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
+# Initial model Training phase
+initial_optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)  # Adjust the learning rate as needed
+initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[1, 10, 1])
+initial_model.fit(X_train, y_train, epochs=250, batch_size=17, validation_data=(X_test, y_test))
 
-# Train the second model
-second_model.fit(X_train_stacked, y_train_stacked[:, 1], epochs=100, batch_size=20,
-                 validation_data=(X_test, y_test[:, 1]))
+# compining the models
+# Create an input layer for the track features
+input_tracks = Input(shape=(X_train_tracks.shape[1],))
 
+# Create an input layer for all features
+input_all = Input(shape=(X_train.shape[1],))
+
+# Get the output from the track model
+output_tracks = track_model(input_tracks)
+
+# Get the output from the all features model
+output_all = initial_model(input_all)
+
+# Concatenate the outputs
+merged = concatenate([output_tracks, output_all])
+
+# Additional layers if needed
+merged = Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01), kernel_initializer='he_normal')(merged)
+merged = Dropout(0.2)(merged)
+merged_output = Dense(3, activation='linear')(merged)
+
+# Create the combined model
+combined_model = Model(inputs=[input_tracks, input_all], outputs=merged_output)
+
+# Compile the combined model
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
+combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[1, 10, 1])
+
+# Train the combined model
+combined_model.fit([X_train_tracks, X_train], y_train, epochs=500, batch_size=17,
+                   validation_data=([X_test_tracks, X_test], y_test))
 
 # Check predictions
-y_pred = second_model.predict(X_test)
+y_pred = combined_model.predict(X_test)
 y_pred = sc_y.inverse_transform(y_pred)
 # If the prediction is less than 5s I consider that as a 0. Should be larger thought
 y_pred[y_pred < 5000] = 0
@@ -172,13 +213,13 @@ print(milliseconds_to_time_string(y_test[a:a + 15]))
 r2 = r2_score(y_test, y_pred)
 print("R2 score: ", r2)
 
-second_model.save('models/modern_f1_era_quali_model.keras')
+initial_model.save('models/modern_f1_era_quali_model.keras')
 
 # Single value prediction
 # first value is driver, second value is track, constructor is third
 single_input = np.array([[64, 8, 28], [817, 71, 9]])
 single_input_standardized = sc_X.transform(single_input)
-predicted_output_standardized = second_model.predict(single_input_standardized)
+predicted_output_standardized = combined_model.predict(single_input_standardized)
 predicted_output = sc_y.inverse_transform(predicted_output_standardized)
 
 # Print the predictions
