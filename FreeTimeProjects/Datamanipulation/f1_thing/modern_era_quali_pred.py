@@ -13,10 +13,12 @@ dataset = pd.read_csv("f1db_csv/qualifying.csv")
 races_dataset = pd.read_csv("f1db_csv/races.csv")
 # Get race id and remove it, instead we use circuitId
 race_track_id = races_dataset[["raceId", "circuitId"]]
-# Acording to F1 ESports professional modern era started 2014.
+# According to F1 ESports professional modern era started 2014.
 # So we will take all those races that started from 2014
 race_date = races_dataset[["date", "raceId"]]
+# Take the date
 dataset = dataset.merge(race_date, on="raceId", how="left")
+# Take track
 dataset = dataset.merge(race_track_id, on="raceId", how="left")
 dataset = dataset.drop(columns=["raceId"])
 dataset['date'] = pd.to_datetime(dataset['date'], format='%Y-%m-%d')
@@ -161,7 +163,7 @@ initial_optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)  # Adjust the l
 initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[1, 10, 1])
 initial_model.fit(X_train, y_train, epochs=250, batch_size=17, validation_data=(X_test, y_test))
 
-# compining the models
+# combining the models
 # Create an input layer for the track features
 input_tracks = Input(shape=(X_train_tracks.shape[1],))
 
@@ -190,7 +192,7 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
 combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[1, 10, 1])
 
 # Train the combined model
-combined_model.fit([X_train_tracks, X_train], y_train, epochs=500, batch_size=17,
+combined_model.fit([X_train_tracks, X_train], y_train, epochs=250, batch_size=17,
                    validation_data=([X_test_tracks, X_test], y_test))
 
 # Check predictions
@@ -213,7 +215,7 @@ print(milliseconds_to_time_string(y_test[a:a + 15]))
 r2 = r2_score(y_test, y_pred)
 print("R2 score: ", r2)
 
-initial_model.save('models/modern_f1_era_quali_model.keras')
+combined_model.save('models/modern_f1_era_quali_model.keras')
 
 # Single value prediction
 # first value is driver, second value is track, constructor is third
