@@ -93,7 +93,6 @@ X_train_tracks = X_train[:, 1:2]
 X_test_tracks = X_test[:, 1:2]
 
 
-# Initial Training
 # Define custom loss function
 # Some notes about this function
 # threshold_milliseconds: Threshold value, max allowable difference between true and predicted value, 200 seems ok
@@ -141,7 +140,7 @@ track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 # batch_size: Number of samples used in each iteration for updating the models weights.
 track_model.fit(X_train_tracks, y_train, epochs=250, batch_size=17, validation_data=(X_test_tracks, y_test))
 
-# initial Model that train all values
+# Initial Model: train all values
 initial_model = tf.keras.Sequential([
     tf.keras.layers.Dense(128, activation='relu', input_shape=(X_train.shape[1],),
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
@@ -164,6 +163,11 @@ initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['m
 initial_model.fit(X_train, y_train, epochs=250, batch_size=17, validation_data=(X_test, y_test))
 
 # combining the models
+# Freeze the layers of the track_model
+# meaning that it prevents the weights of those layers from being updated during training
+for layer in track_model.layers:
+    layer.trainable = False
+
 # Create an input layer for the track features
 input_tracks = Input(shape=(X_train_tracks.shape[1],))
 
@@ -180,23 +184,27 @@ output_all = initial_model(input_all)
 merged = concatenate([output_tracks, output_all])
 
 # Additional layers if needed
-merged = Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01), kernel_initializer='he_normal')(merged)
+merged = Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01),
+               kernel_initializer='he_normal')(merged)
 merged = Dropout(0.2)(merged)
 merged_output = Dense(3, activation='linear')(merged)
 
 # Create the combined model
-combined_model = Model(inputs=[input_tracks, input_all], outputs=merged_output)
+combined_model = Model(inputs={'input_1': track_model.input, 'input_2': initial_model.input},
+                       outputs=merged_output)
 
 # Compile the combined model
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
-combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[1, 10, 1])
+combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
 
 # Train the combined model
 combined_model.fit([X_train_tracks, X_train], y_train, epochs=250, batch_size=17,
                    validation_data=([X_test_tracks, X_test], y_test))
 
+print(X_test_tracks.shape)
+
 # Check predictions
-y_pred = combined_model.predict(X_test)
+y_pred = combined_model.predict({'input_1': X_test_tracks, 'input_2': X_test})
 y_pred = sc_y.inverse_transform(y_pred)
 # If the prediction is less than 5s I consider that as a 0. Should be larger thought
 y_pred[y_pred < 5000] = 0
