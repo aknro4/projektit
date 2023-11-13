@@ -46,8 +46,6 @@ y = dataset.iloc[:, -3:]
 # Dealing whit empty values '\N' by setting them to 0
 y.replace(r"\\N", 0, inplace=True, regex=True)
 
-print(dataset['circuitId'].value_counts().get(3, 0))
-
 
 # Function to convert time string to milliseconds
 def time_string_to_milliseconds(time_string):
@@ -93,6 +91,7 @@ X_test = sc_X.transform(X_test)
 y_train = sc_y.fit_transform(y_train)
 y_test = sc_y.transform(y_test)
 
+
 # Train first whit only tracks
 X_train_tracks = X_train[:, 1:2]
 X_test_tracks = X_test[:, 1:2]
@@ -104,33 +103,52 @@ epochs = 200
 batch_size = 30
 epochs_track = 200
 batch_size_track = 5
+learning_rate = 0.01
 
 
 # Define custom loss function
 # Some notes about this function
-# threshold_milliseconds: Threshold value, max allowable difference between true and predicted value, 200 seems ok
+# threshold_milliseconds: Threshold value, max allowable difference between true and predicted value,
+# 200 seems ok
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
-# in this case error <= threshold_milliseconds
-def custom_loss(y_true, y_pred, threshold_milliseconds=2000, target_value_1=-1.59967049, target_value_2=-0.93527763,
+# target_value_1=-1.59967049, target_value_2=-0.93527763 These values are 0 but scaled
+def custom_loss(y_true, y_pred, threshold_milliseconds=200,zero_threshold=45000, target_value_1=-1.59967049, target_value_2=-0.93527763,
                 tolerance=1e-7):
     y_true = tf.cast(y_true, dtype=tf.float32)  # Cast y_true to float32
     error = tf.abs(y_true - y_pred)
 
-    # Quadratic penalty term for values close to zero.
+    # Scale the threshold values
+    scaled_threshold_milliseconds = sc_y.transform([[threshold_milliseconds]])[0, 0]
+    scaled_zero_threshold = sc_y.transform([[zero_threshold]])[0, 0]
+
+    # Threshold predictions below a certain value to be considered as 0
+    y_pred = tf.where(y_pred < scaled_zero_threshold, 0.0, y_pred)
+
+    # Quadratic penalty term for values close to zero. Might remove this.
     quadratic_penalty = tf.where((tf.abs(y_true - target_value_1) > tolerance) &
                                  (tf.abs(y_true - target_value_2) > tolerance) &
-                                 (error <= threshold_milliseconds),
-                                 0.5 * tf.math.pow(error / threshold_milliseconds, 2),
+                                 (error <= scaled_threshold_milliseconds),
+                                 0.5 * tf.math.pow(error / scaled_threshold_milliseconds, 2),
                                  0.0)
 
-    # Linear penalty term for other values
+    # Linear penalty term for other values.Might remove this as well
     linear_penalty = tf.where((tf.abs(y_true - target_value_1) > tolerance) &
                               (tf.abs(y_true - target_value_2) > tolerance) &
-                              (error > threshold_milliseconds),
-                              error - 0.5 * threshold_milliseconds,
+                              (error > scaled_threshold_milliseconds),
+                              error - 0.5 * scaled_threshold_milliseconds,
                               0.0)
 
-    return tf.reduce_mean(quadratic_penalty + linear_penalty)
+    # Additional penalty for predictions below the true value
+    below_true_penalty = tf.where(y_pred < y_true,
+                                  0.2 * tf.math.pow((y_true - y_pred) / scaled_threshold_milliseconds, 2),
+                                  0.0)
+
+    # Additional penalty for predictions above the true value
+    above_true_penalty = tf.where(y_pred > y_true,
+                                  0.2 * tf.math.pow((y_pred - y_true) / scaled_threshold_milliseconds, 2),
+                                  0.0)
+
+    return tf.reduce_mean(quadratic_penalty + linear_penalty + below_true_penalty + above_true_penalty)
 
 
 # Track model: Trains based on only tracks
@@ -148,13 +166,13 @@ track_model = tf.keras.Sequential([
 ])
 
 # Compile the model using the custom loss function and custom learning rate
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)  # Adjust the learning rate as needed
+optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 # Train the track model
 # Training for all individual tracks about 79 runs...
 X_train_inverse = sc_X.inverse_transform(X_train)
 X_test_inverse = sc_X.inverse_transform(X_test)
-for i in circuits_dataset[:,0]:
+for i in circuits_dataset[:, 0]:
     print(i)
     if len(X_train_tracks[X_train_inverse[:, 1] == i]) != 0:
         track_model.fit(X_train_tracks[X_train_inverse[:, 1] == i],
@@ -190,15 +208,17 @@ initial_model = tf.keras.Sequential([
 ])
 
 # Initial model Training phase
-initial_optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)  # Adjust the learning rate as needed
+initial_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
 initial_model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_data=(X_test, y_test))
 
 # Testing the performance of Inital model
-
 initial_pred = initial_model.predict(X_test)
 initial_r2 = r2_score(y_test, initial_pred)
 print("R2 score: ", initial_r2)
+
+# Add third model for training based on constructor
+
 # combining the models
 # Freeze the layers of the track_model
 # meaning that it prevents the weights of those layers from being updated during training
@@ -230,14 +250,12 @@ merged_output = Dense(3, activation='linear')(merged)
 combined_model = Model(inputs=[input_tracks, input_all], outputs=merged_output)
 
 # Compile the combined model
-optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
+optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
 
 # Train the combined model
 combined_model.fit([X_train_tracks, X_train], y_train, epochs=epochs, batch_size=batch_size,
                    validation_data=([X_test_tracks, X_test], y_test))
-
-print(X_test_tracks.shape)
 
 # Check predictions
 y_pred = combined_model.predict({'input_1': X_test_tracks, 'input_2': X_test})
@@ -259,10 +277,12 @@ print(milliseconds_to_time_string(y_test[a:a + 15]))
 r2 = r2_score(y_test, y_pred)
 print("R2 score: ", r2)
 
+# Save model h5 or keras
 combined_model.save('models/modern_f1_era_quali_model.keras')
 
 # Single value prediction
 # first value is driver, second value is track, constructor is third
+# X_test[[15]], X_test[[60]]
 single_input = np.array([[64, 8, 28], [817, 71, 9]])
 tracks = np.array([8], [71])
 single_input_standardized = sc_X.transform(single_input)
