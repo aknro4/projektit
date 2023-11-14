@@ -120,21 +120,12 @@ def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000
 
     # Scale threshold values
     scaled_threshold_milliseconds = \
-        sc_y.transform([[threshold_milliseconds, threshold_milliseconds, threshold_milliseconds]])[0, 0]
-    # Wanted to add threshold where lets say all predictions below 45000 would be 0
-    scaled_zero_threshold = sc_y.transform([[zero_threshold, zero_threshold, zero_threshold]])[0, 0]
+        sc_y.transform([[threshold_milliseconds, threshold_milliseconds, threshold_milliseconds]])
 
-    # Quadratic penalty term for values close to zero. Test with this but should remove tolerance and tf.abs
-    quadratic_penalty = tf.where((tf.abs(y_true - zero_scaled) > tolerance) &
-                                 (error <= scaled_threshold_milliseconds),
-                                 0.5 * tf.math.pow(error / scaled_threshold_milliseconds, 2),
-                                 0.0)
-
-    # Linear penalty term for other values. Test with this but should remove tolerance and tf.abs
-    linear_penalty = tf.where((tf.abs(y_true - zero_scaled) > tolerance) &
-                              (error > scaled_threshold_milliseconds),
-                              error - 0.5 * scaled_threshold_milliseconds,
-                              0.0)
+    # Exponential penalties based on error magnitude
+    exponential_penalty = tf.where(error <= scaled_threshold_milliseconds,
+                                   tf.math.exp(error / scaled_threshold_milliseconds) - 1,
+                                   0.0)
 
     # Additional penalty for predictions below the true value
     below_true_penalty = tf.where(y_pred < y_true,
@@ -146,15 +137,15 @@ def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000
                                   0.2 * tf.math.pow((y_pred - y_true) / scaled_threshold_milliseconds, 2),
                                   0.0)
 
-    return tf.reduce_mean(quadratic_penalty + linear_penalty + below_true_penalty + above_true_penalty)
+    return tf.reduce_mean(exponential_penalty + below_true_penalty + above_true_penalty)
 
 
 # Track model: Trains based on only tracks
 track_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(128, activation='relu', input_shape=(X_train_tracks.shape[1],),
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train_tracks.shape[1],),
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
                           kernel_initializer='he_normal'),
-    tf.keras.layers.Dense(64, activation='relu', name='hidden_layer_1',
+    tf.keras.layers.Dense(32, activation='relu', name='hidden_layer_1',
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
                           kernel_initializer='he_normal'),
     tf.keras.layers.Dropout(0.2),  # Adding dropout for regularization
@@ -164,13 +155,12 @@ track_model = tf.keras.Sequential([
 ])
 
 # Compile the model using the custom loss function and custom learning rate
-optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
 track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 # Train the track model
 # Training for all individual tracks about 79 runs...
 X_train_inverse = sc_X.inverse_transform(X_train)
 X_test_inverse = sc_X.inverse_transform(X_test)
-print(X_train_inverse)
 for i in circuits_dataset[:, 0]:
     print(i)
     if len(X_train_tracks[X_train_inverse[:, 1] == i]) != 0:
@@ -179,6 +169,9 @@ for i in circuits_dataset[:, 0]:
                         epochs=epochs_track, batch_size=batch_size_track,
                         validation_data=(X_test_tracks[X_test_inverse[:, 1] == i],
                                          y_test[X_test_inverse[:, 1] == i]))
+track_model.fit(X_train_tracks, y_train,
+                epochs=epochs_track, batch_size=batch_size,
+                validation_data=(X_test, y_test))
 
 # Track model performance test
 track_pred = track_model.predict(X_test_tracks)
@@ -194,10 +187,10 @@ print("R2 score: ", track_r2)
 # Change this to indivitual drivers model like whit the track
 # and same for constructor, then we combine all 3 models to one and hope it improves our shitty modesl :D
 initial_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(128, activation='relu', input_shape=(X_train.shape[1],),
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],),
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
                           kernel_initializer='he_normal'),
-    tf.keras.layers.Dense(64, activation='relu', name='hidden_layer_1',
+    tf.keras.layers.Dense(32, activation='relu', name='hidden_layer_1',
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
                           kernel_initializer='he_normal'),
     tf.keras.layers.Dropout(0.2),  # Adding dropout for regularization
@@ -207,8 +200,17 @@ initial_model = tf.keras.Sequential([
 ])
 
 # Initial model Training phase
-initial_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+initial_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
 initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
+
+# Separate training on each track
+for i in circuits_dataset[:, 0]:
+    print(i)
+    if len(X_train[X_train[:, 1] == i]) != 0:
+        initial_model.fit(X_train[X_train[:, 1] == i], y_train[y_train[:, 1] == i],
+                          epochs=epochs, batch_size=batch_size,
+                          validation_data=(X_test[X_test[:, 1] == i], y_test[y_test[:, 1] == i]))
+
 initial_model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_data=(X_test, y_test))
 
 # Testing the performance of Inital model
@@ -249,7 +251,7 @@ merged_output = Dense(3, activation='linear')(merged)
 combined_model = Model(inputs=[input_tracks, input_all], outputs=merged_output)
 
 # Compile the combined model
-optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
 combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
 
 # Train the combined model
@@ -283,7 +285,7 @@ combined_model.save('models/modern_f1_era_quali_model.keras')
 # first value is driver, second value is track, constructor is third
 # X_test[[15]], X_test[[60]]
 single_input = np.array([[64, 8, 28], [817, 71, 9]])
-tracks = np.array([8], [71])
+tracks = np.array([[8]], [[71]])
 single_input_standardized = sc_X.transform(single_input)
 tracks = sc_X.transform(tracks)
 predicted_output_standardized = combined_model.predict({"input_1": tracks, "input_2": single_input_standardized})
