@@ -9,23 +9,35 @@ from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.layers import Input, concatenate, Dense, Dropout
 from tensorflow.keras.models import Model
 
+# main dataset
 dataset = pd.read_csv("f1db_csv/qualifying.csv")
-races_dataset = pd.read_csv("f1db_csv/races.csv")
+
+# Circuits for individual track training
 circuits_dataset = pd.read_csv("f1db_csv/circuits.csv")
 circuits_dataset = circuits_dataset[["circuitId"]].values
+
+# Individual drivers for training
+drivers_dataset = pd.read_csv("f1db_csv/drivers.csv")
+drivers_dataset = drivers_dataset[["driverId"]].values
+
+# Races dataset, way of getting circuitid
+races_dataset = pd.read_csv("f1db_csv/races.csv")
 # Get race id and remove it, instead we use circuitId
 race_track_id = races_dataset[["raceId", "circuitId"]]
+# Take track
+dataset = dataset.merge(race_track_id, on="raceId", how="left")
+
+# insert the new colum to index 2
+dataset.insert(2, "circuitId", dataset.pop("circuitId"))
+
 # According to F1 ESports professional modern era started 2014.
 # So we will take all those races that started from 2014
 race_date = races_dataset[["date", "raceId"]]
 # Take the date
 dataset = dataset.merge(race_date, on="raceId", how="left")
-# Take track
-dataset = dataset.merge(race_track_id, on="raceId", how="left")
-dataset = dataset.drop(columns=["raceId"])
 dataset['date'] = pd.to_datetime(dataset['date'], format='%Y-%m-%d')
-# insert the new colum to index 2
-dataset.insert(2, "circuitId", dataset.pop("circuitId"))
+# remove raceId, we use circuitId instead
+dataset = dataset.drop(columns=["raceId"])
 
 # print(len(dataset)) 9975
 # Remove rows where year is not 2014 or higher
@@ -91,9 +103,14 @@ X_test = sc_X.transform(X_test)
 y_train = sc_y.fit_transform(y_train)
 y_test = sc_y.transform(y_test)
 
-# Train first whit only tracks
+# Train set whit only tracks
 X_train_tracks = X_train[:, 1:2]
 X_test_tracks = X_test[:, 1:2]
+
+# Train set whit only drivers
+X_train_driver = X_train[:, 0:1]
+X_test_driver = X_test[:, 0:1]
+
 
 # Training sizes for all models
 # epochs: number of iterations over the entire training set
@@ -102,6 +119,8 @@ epochs = 200
 batch_size = 30
 epochs_track = 200
 batch_size_track = 5
+epochs_driver = 200
+batch_size_driver = 5
 learning_rate = 0.01
 
 
@@ -110,12 +129,9 @@ learning_rate = 0.01
 # threshold_milliseconds: Threshold value, max allowable difference between true and predicted value,
 # 200 seems ok
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
-def custom_loss(y_true, y_pred, threshold_milliseconds=20, zero_threshold=45000,
+def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000,
                 tolerance=1e-10):
     y_true = tf.cast(y_true, dtype=tf.float32)  # Cast y_true to float32
-    #  scale zero values and cast it to same type
-    zero_scaled = sc_y.transform([[0, 0, 0]])[0]
-    zero_scaled = tf.cast(zero_scaled, dtype=tf.float32)
     error = tf.abs(y_true - y_pred)
 
     # Scale threshold values
@@ -142,7 +158,7 @@ def custom_loss(y_true, y_pred, threshold_milliseconds=20, zero_threshold=45000,
 
 # Track model: Trains based on only tracks
 track_model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train_tracks.shape[1],),
+    tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],),
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
                           kernel_initializer='he_normal'),
     tf.keras.layers.Dense(32, activation='relu', name='hidden_layer_1',
@@ -159,19 +175,22 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
 track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 # Train the track model
 # Training for all individual tracks about 79 runs...
+# Thinking that this actually reduces the performance of the model
 X_train_inverse = sc_X.inverse_transform(X_train)
 X_test_inverse = sc_X.inverse_transform(X_test)
 for i in circuits_dataset[:, 0]:
-    print(i)
-    if len(X_train_tracks[X_train_inverse[:, 1] == i]) != 0:
-        track_model.fit(X_train_tracks[X_train_inverse[:, 1] == i],
+    print(i) # So I can keep track of things
+    print("len: ", len(X_train_tracks[X_train_inverse[:, 1] == i]))
+    if len(X_train[X_train_inverse[:, 1] == i]) != 0:
+        track_model.fit(X_train[X_train_inverse[:, 1] == i],
                         y_train[X_train_inverse[:, 1] == i],
                         epochs=epochs_track, batch_size=batch_size_track,
-                        validation_data=(X_test_tracks[X_test_inverse[:, 1] == i],
+                        validation_data=(X_test[X_test_inverse[:, 1] == i],
                                          y_test[X_test_inverse[:, 1] == i]))
 
+
 # Track model performance test
-track_pred = track_model.predict(X_test_tracks)
+track_pred = track_model.predict(X_test)
 track_r2 = r2_score(y_test, track_pred)
 track_pred = sc_y.inverse_transform(track_pred)
 y_track_test = sc_y.inverse_transform(y_test)
@@ -179,10 +198,7 @@ print(track_pred[5:20])
 print(y_track_test[5:20])
 print("R2 score: ", track_r2)
 
-# Initial Model: train all values
-# To Do:
-# Change this to indivitual drivers model like whit the track
-# and same for constructor, then we combine all 3 models to one and hope it improves our shitty modesl :D
+# Initial Model: train all values whit each driver
 initial_model = tf.keras.Sequential([
     tf.keras.layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],),
                           kernel_regularizer=tf.keras.regularizers.l2(0.01),
@@ -198,16 +214,21 @@ initial_model = tf.keras.Sequential([
 
 # Initial model Training phase
 initial_optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
-initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
+initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['mae'])
 
-# Separate training on each track
-for i in circuits_dataset[:, 0]:
+# Separate training on each track was thinking about for each driver as well
+# There are more drivers than tracks sooo it might take a while.....
+X_train_driver_invers = sc_X.inverse_transform(X_train)
+X_test_driver_invers = sc_X.inverse_transform(X_test)
+for i in drivers_dataset[:, 0]:
     print(i)
-    if len(X_train[X_train[:, 1:2] == i]) != 0:
-        initial_model.fit(X_train[X_train[:, 1] == i], y_train[y_train[:, 1] == i],
-                          epochs=epochs, batch_size=batch_size,
-                          validation_data=(X_test[X_test[:, 1] == i], y_test[y_test[:, 1] == i]))
+    print("len: ", len(X_train[X_train_driver_invers[:, 0] == i]))
+    if len(X_train[X_train_driver_invers[:, 0] == i]) != 0:
+        initial_model.fit(X_train[X_train_driver_invers[:, 0] == i], y_train[X_train_driver_invers[:, 0] == i],
+                          epochs=epochs_driver, batch_size=batch_size_driver,
+                          validation_data=(X_test[X_test_driver_invers[:, 0] == i], y_test[X_test_driver_invers[:, 0] == i]))
 
+# End the model training by doing training on whole dataset
 initial_model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_data=(X_test, y_test))
 
 # Testing the performance of Inital model
@@ -215,7 +236,7 @@ initial_pred = initial_model.predict(X_test)
 initial_r2 = r2_score(y_test, initial_pred)
 print("R2 score: ", initial_r2)
 
-# Add third model for training based on constructor
+# Add third model for training based on constructor? Probs not
 
 # combining the models
 # Freeze the layers of the track_model
@@ -224,7 +245,7 @@ for layer in track_model.layers:
     layer.trainable = False
 
 # Create an input layer for the track features
-input_tracks = Input(shape=(X_train_tracks.shape[1],))
+input_tracks = Input(shape=(X_train.shape[1],))
 
 # Create an input layer for all features
 input_all = Input(shape=(X_train.shape[1],))
@@ -252,11 +273,11 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
 combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
 
 # Train the combined model
-combined_model.fit([X_train_tracks, X_train], y_train, epochs=epochs, batch_size=batch_size,
-                   validation_data=([X_test_tracks, X_test], y_test))
+combined_model.fit([X_train, X_train], y_train, epochs=epochs, batch_size=batch_size,
+                   validation_data=([X_test, X_test], y_test))
 
 # Check predictions
-y_pred = combined_model.predict({'input_1': X_test_tracks, 'input_2': X_test})
+y_pred = combined_model.predict({'input_1': X_test, 'input_2': X_test})
 y_pred = sc_y.inverse_transform(y_pred)
 # If the prediction is less than 5s I consider that as a 0. Should be larger thought
 y_pred[y_pred < 5000] = 0
@@ -275,14 +296,14 @@ print(milliseconds_to_time_string(y_test[a:a + 15]))
 r2 = r2_score(y_test, y_pred)
 print("R2 score: ", r2)
 
-# Save model h5 or keras
+# Save model as h5 or keras
 combined_model.save('models/modern_f1_era_quali_model.keras')
 
 # Single value prediction
 # first value is driver, second value is track, constructor is third
 # X_test[[15]], X_test[[60]]
 single_input = np.array([[64, 8, 28], [817, 71, 9]])
-tracks = np.array([[8]], [[71]])
+tracks = np.array([[8], [71]])
 single_input_standardized = sc_X.transform(single_input)
 tracks = sc_X.transform(tracks)
 predicted_output_standardized = combined_model.predict({"input_1": tracks, "input_2": single_input_standardized})
