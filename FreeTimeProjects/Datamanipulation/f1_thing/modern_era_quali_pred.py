@@ -91,7 +91,6 @@ X_test = sc_X.transform(X_test)
 y_train = sc_y.fit_transform(y_train)
 y_test = sc_y.transform(y_test)
 
-
 # Train first whit only tracks
 X_train_tracks = X_train[:, 1:2]
 X_test_tracks = X_test[:, 1:2]
@@ -111,29 +110,28 @@ learning_rate = 0.01
 # threshold_milliseconds: Threshold value, max allowable difference between true and predicted value,
 # 200 seems ok
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
-# target_value_1=-1.59967049, target_value_2=-0.93527763 These values are 0 but scaled
-def custom_loss(y_true, y_pred, threshold_milliseconds=200,zero_threshold=45000, target_value_1=-1.59967049, target_value_2=-0.93527763,
-                tolerance=1e-7):
+def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000,
+                tolerance=1e-10):
     y_true = tf.cast(y_true, dtype=tf.float32)  # Cast y_true to float32
+    #  scale zero values and cast it to same type
+    zero_scaled = sc_y.transform([[0, 0, 0]])[0]
+    zero_scaled = tf.cast(zero_scaled, dtype=tf.float32)
     error = tf.abs(y_true - y_pred)
 
-    # Scale the threshold values
-    scaled_threshold_milliseconds = sc_y.transform([[threshold_milliseconds]])[0, 0]
-    scaled_zero_threshold = sc_y.transform([[zero_threshold]])[0, 0]
+    # Scale threshold values
+    scaled_threshold_milliseconds = \
+        sc_y.transform([[threshold_milliseconds, threshold_milliseconds, threshold_milliseconds]])[0, 0]
+    # Wanted to add threshold where lets say all predictions below 45000 would be 0
+    scaled_zero_threshold = sc_y.transform([[zero_threshold, zero_threshold, zero_threshold]])[0, 0]
 
-    # Threshold predictions below a certain value to be considered as 0
-    y_pred = tf.where(y_pred < scaled_zero_threshold, 0.0, y_pred)
-
-    # Quadratic penalty term for values close to zero. Might remove this.
-    quadratic_penalty = tf.where((tf.abs(y_true - target_value_1) > tolerance) &
-                                 (tf.abs(y_true - target_value_2) > tolerance) &
+    # Quadratic penalty term for values close to zero. Test with this but should remove tolerance and tf.abs
+    quadratic_penalty = tf.where((tf.abs(y_true - zero_scaled) > tolerance) &
                                  (error <= scaled_threshold_milliseconds),
                                  0.5 * tf.math.pow(error / scaled_threshold_milliseconds, 2),
                                  0.0)
 
-    # Linear penalty term for other values.Might remove this as well
-    linear_penalty = tf.where((tf.abs(y_true - target_value_1) > tolerance) &
-                              (tf.abs(y_true - target_value_2) > tolerance) &
+    # Linear penalty term for other values. Test with this but should remove tolerance and tf.abs
+    linear_penalty = tf.where((tf.abs(y_true - zero_scaled) > tolerance) &
                               (error > scaled_threshold_milliseconds),
                               error - 0.5 * scaled_threshold_milliseconds,
                               0.0)
@@ -172,6 +170,7 @@ track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 # Training for all individual tracks about 79 runs...
 X_train_inverse = sc_X.inverse_transform(X_train)
 X_test_inverse = sc_X.inverse_transform(X_test)
+print(X_train_inverse)
 for i in circuits_dataset[:, 0]:
     print(i)
     if len(X_train_tracks[X_train_inverse[:, 1] == i]) != 0:
