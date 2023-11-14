@@ -110,7 +110,7 @@ learning_rate = 0.01
 # threshold_milliseconds: Threshold value, max allowable difference between true and predicted value,
 # 200 seems ok
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
-def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000,
+def custom_loss(y_true, y_pred, threshold_milliseconds=20, zero_threshold=45000,
                 tolerance=1e-10):
     y_true = tf.cast(y_true, dtype=tf.float32)  # Cast y_true to float32
     #  scale zero values and cast it to same type
@@ -169,9 +169,6 @@ for i in circuits_dataset[:, 0]:
                         epochs=epochs_track, batch_size=batch_size_track,
                         validation_data=(X_test_tracks[X_test_inverse[:, 1] == i],
                                          y_test[X_test_inverse[:, 1] == i]))
-track_model.fit(X_train_tracks, y_train,
-                epochs=epochs_track, batch_size=batch_size,
-                validation_data=(X_test, y_test))
 
 # Track model performance test
 track_pred = track_model.predict(X_test_tracks)
@@ -206,7 +203,7 @@ initial_model.compile(optimizer=initial_optimizer, loss=custom_loss, metrics=['m
 # Separate training on each track
 for i in circuits_dataset[:, 0]:
     print(i)
-    if len(X_train[X_train[:, 1] == i]) != 0:
+    if len(X_train[X_train[:, 1:2] == i]) != 0:
         initial_model.fit(X_train[X_train[:, 1] == i], y_train[y_train[:, 1] == i],
                           epochs=epochs, batch_size=batch_size,
                           validation_data=(X_test[X_test[:, 1] == i], y_test[y_test[:, 1] == i]))
