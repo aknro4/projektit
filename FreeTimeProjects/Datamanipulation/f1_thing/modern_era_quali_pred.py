@@ -3,6 +3,7 @@ import random
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -104,13 +105,12 @@ y_train = sc_y.fit_transform(y_train)
 y_test = sc_y.transform(y_test)
 
 # Train set whit only tracks
-X_train_tracks = X_train[:, 1:2]
-X_test_tracks = X_test[:, 1:2]
+X_train_tracks = X_train
+X_test_tracks = X_test
 
 # Train set whit only drivers
 X_train_driver = X_train[:, 0:1]
 X_test_driver = X_test[:, 0:1]
-
 
 # Training sizes for all models
 # epochs: number of iterations over the entire training set
@@ -123,6 +123,25 @@ epochs_driver = 200
 batch_size_driver = 5
 learning_rate = 0.01
 
+# Training the Random Forest Regression model on the whole dataset
+regressor = RandomForestRegressor(n_estimators=2000,
+                                   max_depth=200,
+                                   min_samples_split=20,
+                                   min_samples_leaf=20,
+                                   max_features='sqrt',
+                                   random_state=0)
+regressor.fit(X_train, y_train)
+
+# Predicting the Test set results
+# Literally 100 times better r2 score than my own model......
+y_pred = regressor.predict(X_test)
+print(r2_score(y_test, y_pred))
+
+y_pred_inversed = sc_y.inverse_transform(y_pred)
+print(milliseconds_to_time_string(y_pred_inversed))
+print(milliseconds_to_time_string(sc_y.inverse_transform(y_test)))
+# Evaluating the Model Performance
+
 
 # Define custom loss function
 # Some notes about this function
@@ -131,7 +150,9 @@ learning_rate = 0.01
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
 def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000,
                 tolerance=1e-10):
-    y_true = tf.cast(y_true, dtype=tf.float32)  # Cast y_true to float32
+    y_true = tf.cast(y_true, dtype=tf.float32)
+    zero_scaled = sc_y.transform([[0, 0, 0]])
+    zero_scaled = tf.cast(zero_scaled, dtype=tf.float32)
     error = tf.abs(y_true - y_pred)
 
     # Scale threshold values
@@ -179,18 +200,17 @@ track_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'])
 X_train_inverse = sc_X.inverse_transform(X_train)
 X_test_inverse = sc_X.inverse_transform(X_test)
 for i in circuits_dataset[:, 0]:
-    print(i) # So I can keep track of things
+    print(i)  # So I can keep track of things
     print("len: ", len(X_train_tracks[X_train_inverse[:, 1] == i]))
-    if len(X_train[X_train_inverse[:, 1] == i]) != 0:
-        track_model.fit(X_train[X_train_inverse[:, 1] == i],
+    if len(X_train_tracks[X_train_inverse[:, 1] == i]) != 0:
+        track_model.fit(X_train_tracks[X_train_inverse[:, 1] == i],
                         y_train[X_train_inverse[:, 1] == i],
                         epochs=epochs_track, batch_size=batch_size_track,
-                        validation_data=(X_test[X_test_inverse[:, 1] == i],
+                        validation_data=(X_test_tracks[X_test_inverse[:, 1] == i],
                                          y_test[X_test_inverse[:, 1] == i]))
 
-
 # Track model performance test
-track_pred = track_model.predict(X_test)
+track_pred = track_model.predict(X_test_tracks)
 track_r2 = r2_score(y_test, track_pred)
 track_pred = sc_y.inverse_transform(track_pred)
 y_track_test = sc_y.inverse_transform(y_test)
@@ -226,7 +246,8 @@ for i in drivers_dataset[:, 0]:
     if len(X_train[X_train_driver_invers[:, 0] == i]) != 0:
         initial_model.fit(X_train[X_train_driver_invers[:, 0] == i], y_train[X_train_driver_invers[:, 0] == i],
                           epochs=epochs_driver, batch_size=batch_size_driver,
-                          validation_data=(X_test[X_test_driver_invers[:, 0] == i], y_test[X_test_driver_invers[:, 0] == i]))
+                          validation_data=(
+                              X_test[X_test_driver_invers[:, 0] == i], y_test[X_test_driver_invers[:, 0] == i]))
 
 # End the model training by doing training on whole dataset
 initial_model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_data=(X_test, y_test))
@@ -245,7 +266,7 @@ for layer in track_model.layers:
     layer.trainable = False
 
 # Create an input layer for the track features
-input_tracks = Input(shape=(X_train.shape[1],))
+input_tracks = Input(shape=(X_train_tracks.shape[1],))
 
 # Create an input layer for all features
 input_all = Input(shape=(X_train.shape[1],))
@@ -273,11 +294,11 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipvalue=1.0)
 combined_model.compile(optimizer=optimizer, loss=custom_loss, metrics=['mae'], loss_weights=[2, 5, 1])
 
 # Train the combined model
-combined_model.fit([X_train, X_train], y_train, epochs=epochs, batch_size=batch_size,
-                   validation_data=([X_test, X_test], y_test))
+combined_model.fit([X_train_tracks, X_train], y_train, epochs=epochs, batch_size=batch_size,
+                   validation_data=([X_test_tracks, X_test], y_test))
 
 # Check predictions
-y_pred = combined_model.predict({'input_1': X_test, 'input_2': X_test})
+y_pred = combined_model.predict({'input_1': X_test_tracks, 'input_2': X_test})
 y_pred = sc_y.inverse_transform(y_pred)
 # If the prediction is less than 5s I consider that as a 0. Should be larger thought
 y_pred[y_pred < 5000] = 0
