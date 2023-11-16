@@ -10,6 +10,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 from tensorflow.keras.layers import Input, concatenate, Dense, Dropout
 from tensorflow.keras.models import Model
+import statsmodels.api as sm
+
 
 # main dataset
 dataset = pd.read_csv("f1db_csv/results.csv")
@@ -123,9 +125,16 @@ y_train_position = y_train[:, 0]
 time_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
 time_regressor.fit(X_train, y_train_time)
 
-# Predicting results
+# Predicting results adn validating results
 y_pred_time = time_regressor.predict(X_test)
 print(r2_score(y_test_time, y_pred_time))
+
+# Add a constant term to X_train
+X_train_const = sm.add_constant(X_train)
+# Fit Ordinary Least Squares (OLS) regression using statsmodels
+model_time = sm.OLS(y_train_time, X_train_const).fit()
+# Print summary of the model
+print(model_time.summary())
 
 # Training the Position SVR model on the Training set
 position_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
@@ -135,4 +144,10 @@ position_regressor.fit(X_train, y_train_position)
 y_pred_position = position_regressor.predict(X_test)
 print(r2_score(y_test_position, y_pred_position))
 
+# Add a constant term to X_train
+X_train_const = sm.add_constant(X_train)
+# Fit Ordinary Least Squares (OLS) regression using statsmodels
+model_position = sm.OLS(y_train_position, X_train_const).fit()
+# Print summary of the model
+print(model_position.summary())
 
