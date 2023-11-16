@@ -3,11 +3,11 @@ import random
 import pandas as pd
 import numpy as np
 import tensorflow as tf
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor,RandomForestClassifier
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVR
+from sklearn.svm import SVR,SVC
 from tensorflow.keras.layers import Input, concatenate, Dense, Dropout
 from tensorflow.keras.models import Model
 import statsmodels.api as sm
@@ -107,6 +107,11 @@ y = y.values
 # Splitting the data into Training set and test set
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
+# I dont want to scale positions or get position after scaling
+# Using it for classifier
+y_test_position = y_test[:, 0]
+y_train_position = y_train[:, 0]
+
 # Feature Scaling
 sc_X = StandardScaler()
 sc_y = StandardScaler()
@@ -118,8 +123,6 @@ y_test = sc_y.transform(y_test)
 # Splitting predictions
 y_test_time = y_test[:, 1]
 y_train_time = y_train[:, 1]
-y_test_position = y_test[:, 0]
-y_train_position = y_train[:, 0]
 
 # Training the TIME SVR model on the Training set
 time_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
@@ -137,11 +140,16 @@ model_time = sm.OLS(y_train_time, X_train_const).fit()
 print(model_time.summary())
 
 # Training the Position SVR model on the Training set
-position_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
-position_regressor.fit(X_train, y_train_position)
+# position_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
+# position_regressor.fit(X_train, y_train_position)
+
+# RandomFOrestClassifier
+position_classifier_RFC = RandomForestClassifier(max_depth=250, min_samples_split=50, min_samples_leaf=10,
+                                             n_jobs=100, random_state=0)
+position_classifier_RFC.fit(X_train, y_train_position)
 
 # Predicting results
-y_pred_position = position_regressor.predict(X_test)
+y_pred_position = position_classifier_RFC.predict(X_test)
 print(r2_score(y_test_position, y_pred_position))
 
 # Add a constant term to X_train
