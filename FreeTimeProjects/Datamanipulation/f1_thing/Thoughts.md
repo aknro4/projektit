@@ -2,7 +2,7 @@
 
 is the first first version of trying to predict quali times.
 It is good at predicting 0 runs and decent at predicting first quali runs but does lack in rest of the predictions.
-This also train on the whole dataset. Included 1950 results. <br> <br>
+This also trained on the whole dataset. Included 1950 results. <br> <br>
 And with that you can predict some fun stuff like what time Senna would have gotten whit mercedes in Abu Dhabi.  
 Even tought the predictions are around 10 seconds of the actual time I think you can get the idea what kind of results he could put up in today's car
 
@@ -13,7 +13,7 @@ first quali run prediction to be more precise with the first runs but also with 
 Spoiler, that did not end up happening and is actually worse than the first version. 
 Even with the first version having some mistakes that I did not fix.
 
-Anyway, spend most of the time trying to a way to fix custom loss to be better. And... Well it did not happen :]
+Anyway, spend most of the time trying to find a way to fix custom loss to be better. And... Well it did not happen :]
 
 **pred_race_winner**
 
