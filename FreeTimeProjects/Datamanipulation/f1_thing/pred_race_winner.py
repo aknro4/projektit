@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
 from tensorflow.keras.layers import Input, concatenate, Dense, Dropout
 from tensorflow.keras.models import Model
 
@@ -50,8 +51,7 @@ dataset.pop("date")
 # Remove all not needed columns, Not sure do we need position probably not.
 dataset = dataset.drop(
     ["resultId", "number", "positionText", "points", "laps", "time", "milliseconds", "fastestLap", "rank",
-     "fastestLapSpeed",
-     "statusId", "position"], axis=1)
+     "fastestLapSpeed","statusId", "position"], axis=1)
 print(dataset)
 
 # save the data to csv
@@ -113,6 +113,26 @@ X_test = sc_X.transform(X_test)
 y_train = sc_y.fit_transform(y_train)
 y_test = sc_y.transform(y_test)
 
+# Splitting predictions
+y_test_time = y_test[:, 1]
+y_train_time = y_train[:, 1]
+y_test_position = y_test[:, 0]
+y_train_position = y_train[:, 0]
 
+# Training the TIME SVR model on the Training set
+time_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
+time_regressor.fit(X_train, y_train_time)
+
+# Predicting results
+y_pred_time = time_regressor.predict(X_test)
+print(r2_score(y_test_time, y_pred_time))
+
+# Training the Position SVR model on the Training set
+position_regressor = SVR(kernel='rbf', C=1.0, epsilon=0.1,)
+position_regressor.fit(X_train, y_train_position)
+
+# Predicting results
+y_pred_position = position_regressor.predict(X_test)
+print(r2_score(y_test_position, y_pred_position))
 
 
