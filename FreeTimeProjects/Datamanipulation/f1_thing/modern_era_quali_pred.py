@@ -27,7 +27,6 @@ races_dataset = pd.read_csv("f1db_csv/races.csv")
 race_track_id = races_dataset[["raceId", "circuitId"]]
 # Take track
 dataset = dataset.merge(race_track_id, on="raceId", how="left")
-
 # insert the new colum to index 2
 dataset.insert(2, "circuitId", dataset.pop("circuitId"))
 
@@ -46,7 +45,7 @@ dataset = dataset[dataset['date'].dt.year >= 2014]
 # Remove date. No need for that
 dataset.pop("date")
 # print(len(dataset)) 4091
-
+print(dataset[:40])
 # save the data to csv
 to_CSV = dataset
 to_CSV.to_csv("training_sets/training_data", index=False)
@@ -146,8 +145,8 @@ print(milliseconds_to_time_string(sc_y.inverse_transform(y_test)))
 # Define custom loss function
 # Some notes about this function
 # threshold_milliseconds: Threshold value, max allowable difference between true and predicted value,
-# 200 seems ok
 # tf.where is used to create a tensor by choosing elements from two tensors based on a condition
+# I dont know anymore what to change to make it better and not worse.
 def custom_loss(y_true, y_pred, threshold_milliseconds=200, zero_threshold=45000,
                 tolerance=1e-10):
     y_true = tf.cast(y_true, dtype=tf.float32)
