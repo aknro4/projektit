@@ -56,6 +56,7 @@ def predict_and_visualize():
         plt.title('Wine Class Prediction Probabilities')
         # Show only values used to predict
         df_string = ', '.join(map(str, input_values[0]))
+        # print(df_string)
         plt.xlabel('Wine Classes And values used to predict\n'
                    + df_string)
         plt.ylabel('Predicted Probabilities')
