@@ -23,23 +23,24 @@ y = bank_marketing.data.targets
 
 # Noted to be not needed and should be removed
 X = X.drop("duration", axis=1)
+X = X.drop("day_of_week", axis=1)
 # Dealing whit empty values
 # X.replace(np.NaN,"")
 to_CSV = X
 to_CSV.to_csv("training_data/training_data.csv", index=False)
-
+y_to_CSV = y
+y_to_CSV.to_csv("training_data/y_data.csv", index=False)
 # Label encodeer
 label_encoder = LabelEncoder()
 
 # Label encoding y values, Should be fine... Right? Just yes or no... Right?
 y = label_encoder.fit_transform(y.astype(str))
-y_to_CSV = y
-y_to_CSV.to_csv("training_data/y_data.csv", index=False)
+
 
 # OneHotEncoding or dealing whit dummy dum dum values
 categorical_columns = ["job", "marital", "education", "default", "housing", "loan", "contact", "month",
                        "poutcome"]
-numerical_values = ["age", "balance", "campaign", "pdays", "previous", "day_of_week"]
+numerical_values = ["age", "balance", "campaign", "pdays", "previous"]
 
 ct = ColumnTransformer(transformers=[("encoder", OneHotEncoder(), categorical_columns)], remainder="passthrough")
 
