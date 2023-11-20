@@ -172,60 +172,24 @@ param_grid = {
     'min_samples_leaf': [1, 2],
 }
 
-# Initialize GridSearchCV
-grid_search = GridSearchCV(RandomForestClassifier(random_state=0), param_grid, cv=5, scoring='accuracy')
 
-# Start tracking time
-print("Training in process and time started")
-start_time = time.time()
-# readable format
-time_object_start = datetime.fromtimestamp(start_time)
-formatted_date = time_object_start.strftime('%H:%M:%S')
-print(formatted_date)
-
-# Train model
-grid_search.fit(X_train, y_train)
-# Get the best parameters
-best_params = grid_search.best_params_
-best_estimator = grid_search.best_estimator_
-# Train the model using the best parameters
-best_estimator.fit(X_train, y_train)
-
-# Calculate training duration
-end_time = time.time()
-train_duration = end_time - start_time
-time_object_start = datetime.fromtimestamp(train_duration)
-formatted_date = time_object_start.strftime('%H:%M:%S')
-print("Training time: ", formatted_date)
-
-# RCF predictions
-y_pred_rcf = best_estimator.predict(X_test)
-print("R2 score", r2_score(y_test, y_pred_rcf))
-# And validation
-accuracy = accuracy_score(y_test, y_pred_rcf)
-print("Accuracy:", accuracy)
-print("Classification Report:")
-print(classification_report(y_test, y_pred_rcf))
-
-# Features importance
-importance = best_estimator.feature_importances_
-print("Feature importance: ", importance)
-
-# Dump or save the model
-dump(best_estimator, "models/bank_marketing_RCF.joblib")
+# Previously used RCF whit gridsearch.
+# Did not getter better result than a SINGLE Xgboost
+# So we are using that instead
 
 # Xgboot
 print("XGB turn... never used this before")
 start_time = time.time()
 # readable format
 time_object_start = datetime.fromtimestamp(start_time)
-formatted_date = time_object_start.strftime('%Y-%m-%d %H:%M:%S')
+formatted_date = time_object_start.strftime('%H:%M:%S')
 print(formatted_date)
 
 # Define the parameter grid for XGB
+
 param_grid_xgb = {
     'learning_rate': [0.01, 0.1, 0.2],
-    'n_estimators': [100, 300, 500],
+    'n_estimators': [25, 75, 125], # Decrees these later
     'max_depth': [3, 5, 7],
     'subsample': [0.7, 0.8, 0.9],
     'colsample_bytree': [0.7, 0.8, 0.9],
@@ -234,7 +198,6 @@ param_grid_xgb = {
     'device': ["cuda", "cuda", "cuda"],
     'tree_method': ["hist", "hist", "hist"]
 }
-
 # Initialize GridSearchCV for XGBClassifier
 grid_search_xgb = GridSearchCV(xgb.XGBClassifier(objective='binary:logistic', eval_metric='error'),
                                param_grid_xgb, cv=5, scoring='accuracy', n_jobs=1)
@@ -250,7 +213,7 @@ best_estimator_xgb = grid_search_xgb.best_estimator_
 end_time = time.time()
 train_duration = end_time - start_time
 time_object_start = datetime.fromtimestamp(train_duration)
-formatted_date = time_object_start.strftime('%Y-%m-%d %H:%M:%S')
+formatted_date = time_object_start.strftime('%H:%M:%S')
 print("Training time: ", formatted_date)
 
 # XGB predictions
