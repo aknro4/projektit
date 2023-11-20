@@ -189,7 +189,7 @@ print(formatted_date)
 
 param_grid_xgb = {
     'learning_rate': [0.01, 0.1, 0.2],
-    'n_estimators': [25, 75, 125], # Decrees these later
+    'n_estimators': [15, 45, 75], # Decrees these later
     'max_depth': [3, 5, 7],
     'subsample': [0.7, 0.8, 0.9],
     'colsample_bytree': [0.7, 0.8, 0.9],
