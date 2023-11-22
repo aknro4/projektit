@@ -113,6 +113,37 @@ labels = [
 # Apply conditions and assign labels
 combined_df['pdays'] = np.select(conditions, labels, default='Unknown')
 
+# Balance average yearly balance
+# Adding groups Data provided is difficult.
+# persons making <=25000 count is 7800 ish so almost whole dataset
+# So making groups whit 5k difference up to 30k
+conditions = [
+    (combined_df['balance'] < 0),
+    (combined_df['balance'].between(0, 5000)),
+    (combined_df['balance'].between(5001, 10000)),
+    (combined_df['balance'].between(10001, 15000)),
+    (combined_df['balance'].between(15001, 20000)),
+    (combined_df['balance'].between(20001, 25000)),
+    (combined_df['balance'].between(25001, 30000)),
+    (combined_df['balance'] >= 30001)
+]
+
+# Define corresponding labels for each condition
+labels = [
+    'negative_balance',
+    '0-5k_balance',
+    '5k-10k_balance',
+    '10k-15k_balance',
+    '15k-20k_balance',
+    '20k-25k_balance',
+    '25k-30k_balance',
+    'over-30k_balance',
+]
+
+# Apply conditions and assign labels
+combined_df['balance'] = np.select(conditions, labels, default='Unknown')
+
+
 # Filtering proces result
 # from 45211 x 16
 # to [7907 rows x 43 columns]
