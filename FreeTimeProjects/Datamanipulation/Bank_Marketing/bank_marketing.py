@@ -114,7 +114,7 @@ labels = [
 combined_df['pdays'] = np.select(conditions, labels, default='Unknown')
 
 # Balance average yearly balance
-# Adding groups Data provided is difficult.
+# Adding groups
 # persons making <=25000 count is 7800 ish so almost whole dataset
 # So making groups whit 5k difference up to 30k
 conditions = [
@@ -143,10 +143,53 @@ labels = [
 # Apply conditions and assign labels
 combined_df['balance'] = np.select(conditions, labels, default='Unknown')
 
+# campaign
+# grouping whit difference of 5 up to 15
+conditions = [
+    (combined_df['campaign'] == 0),
+    (combined_df['campaign'].between(1, 5)),
+    (combined_df['campaign'].between(6, 10)),
+    (combined_df['campaign'].between(11, 15)),
+    (combined_df['campaign'] >= 16)
+]
+
+# Define corresponding labels for each condition
+labels = [
+    '0_contacts',
+    '1-5_contacts',
+    '6-10_contacts',
+    '11-15_contacts',
+    '16-over_contacts',
+]
+
+# Apply conditions and assign labels
+combined_df['campaign'] = np.select(conditions, labels, default='Unknown')
+
+# previous number of contacts performed before this campaign and for this client
+# same range as campaign
+conditions = [
+    (combined_df['previous'] == 0),
+    (combined_df['previous'].between(1, 5)),
+    (combined_df['previous'].between(6, 10)),
+    (combined_df['previous'].between(11, 15)),
+    (combined_df['previous'] >= 16)
+]
+
+# Define corresponding labels for each condition
+labels = [
+    '0_previous',
+    '1-5_previous',
+    '6-10_previous',
+    '11-15_previous',
+    '16-over_previous',
+]
+
+# Apply conditions and assign labels
+combined_df['previous'] = np.select(conditions, labels, default='Unknown')
 
 # Filtering proces result
 # from 45211 x 16
-# to [7907 rows x 43 columns]
+# to [7907 rows x 50 columns]
 
 to_CSV = combined_df
 to_CSV.to_csv("training_data/whole_dataset.csv", index=False)
@@ -170,39 +213,26 @@ y = label_encoder.fit_transform(y.astype(str))
 
 # OneHotEncoding or dealing whit dummy dum dum values
 categorical_columns = ["job", "marital", "education", "default", "housing", "loan", "month",
-                       "poutcome", "age", "pdays"]
-numerical_values = ["balance", "campaign", "previous"]
+                       "poutcome", "age", "pdays", "balance","campaign", "previous"]
 
 ct = ColumnTransformer(transformers=[("encoder", OneHotEncoder(), categorical_columns)], remainder="passthrough")
 
 # Apply the transformation to the dataset
-X_transformed = ct.fit_transform(X)
+X = ct.fit_transform(X)
 
 # Get feature names after transformation
 # some reason I'm little-bit scared about this
-if hasattr(ct.named_transformers_['encoder'], 'get_feature_names_out'):
-    transformed_columns = ct.named_transformers_['encoder'].get_feature_names_out(input_features=categorical_columns)
-else:
-    transformed_columns = ct.named_transformers_['encoder'].get_feature_names(categorical_columns)
+# if hasattr(ct.named_transformers_['encoder'], 'get_feature_names_out'):
+#     transformed_columns = ct.named_transformers_['encoder'].get_feature_names_out(input_features=categorical_columns)
+# else:
+#     transformed_columns = ct.named_transformers_['encoder'].get_feature_names(categorical_columns)
 
 # Combine with numerical column names
-transformed_columns = list(transformed_columns) + numerical_values
-X = pd.DataFrame(X_transformed, columns=transformed_columns)
-X_to_CSV = X
-X_to_CSV.to_csv("training_data/X_data.csv", index=False)
+# transformed_columns = list(transformed_columns)
+# X = pd.DataFrame(X_transformed, columns=transformed_columns)
 
-print(X)
 # Splitting the data into training set and test set
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-# Define the parameter grid for RCF, for cleaner code sake
-param_grid = {
-    'n_estimators': [100, 300, 500],
-    'max_depth': [None, 5, 10],
-    'min_samples_split': [2, 3, 5],
-    'min_samples_leaf': [1, 2],
-}
-
 
 # Previously used RCF whit gridsearch.
 # Did not getter better result than a SINGLE Xgboost
@@ -216,11 +246,11 @@ time_object_start = datetime.fromtimestamp(start_time)
 formatted_date = time_object_start.strftime('%H:%M:%S')
 print(formatted_date)
 
-# Define the parameter grid for XGB
-
+# Define the parameter for XGB.
+# Cant train. cpu overheats, and gpu training does not get triggered some reason
 param_grid_xgb = {
     'learning_rate': [0.01, 0.1, 0.2],
-    'n_estimators': [15, 45, 75], # Decrees these later
+    'n_estimators': [15, 45, 75],  # Decrees these later
     'max_depth': [3, 5, 7],
     'subsample': [0.7, 0.8, 0.9],
     'colsample_bytree': [0.7, 0.8, 0.9],
