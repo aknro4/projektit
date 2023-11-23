@@ -137,7 +137,7 @@ labels = [
     '15k-20k_balance',
     '20k-25k_balance',
     '25k-30k_balance',
-    'over-30k_balance',
+        'over-30k_balance',
 ]
 
 # Apply conditions and assign labels
