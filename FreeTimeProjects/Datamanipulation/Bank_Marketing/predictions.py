@@ -9,9 +9,9 @@ import xlwings as xw
 
 # Get data from excel
 ws = xw.Book("Excel/bank_marketing.xlsx").sheets['Dashboard']
-
+#wb = xw.Book.caller()
 # Selecting data from the Excel
 v1 = ws.range("A44:M44").value
+ws["A51"].value = v1[0]
 
-print(",".join(map(str, v1)))
 
