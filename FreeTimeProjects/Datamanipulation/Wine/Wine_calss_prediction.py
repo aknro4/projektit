@@ -27,9 +27,6 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Get some single predictions
 a = random.randint(0, 20)
 print(X_test.iloc[a])
-# I don't even know should I scale the values after getting 1.0 R2 rating
-# sc_X = StandardScaler()
-# sc_y = StandardScaler()
 
 # Training the Random Forest Classifier model on the whole dataset
 # I guess sometimes it to be really simple
