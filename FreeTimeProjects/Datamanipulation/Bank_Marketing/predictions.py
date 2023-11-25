@@ -7,12 +7,11 @@ import xlwings as xw
 # to_CSV = unique_df
 # to_CSV.to_csv("training_data/unique_data.csv", index=False)
 
+# Get data from excel
+ws = xw.Book("Excel/bank_marketing.xlsx").sheets['Dashboard']
 
-def get_data_from_excel():
-    # Get data from excel
-    ws = xw.Book("Excel/bank_marketing.xlsx").sheets['Dashboard']
+# Selecting data from the Excel
+v1 = ws.range("A44:M44").value
 
-    # Selecting data from the Excel
-    v1 = ws.range("A44:M44").value
+print(",".join(map(str, v1)))
 
-    return v1
