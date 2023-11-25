@@ -137,7 +137,7 @@ labels = [
     '15k-20k_balance',
     '20k-25k_balance',
     '25k-30k_balance',
-        'over-30k_balance',
+    'over-30k_balance',
 ]
 
 # Apply conditions and assign labels
@@ -220,23 +220,70 @@ ct = ColumnTransformer(transformers=[("encoder", OneHotEncoder(), categorical_co
 # Apply the transformation to the dataset
 X = ct.fit_transform(X)
 
-# Get feature names after transformation
-# some reason I'm little-bit scared about this
-# if hasattr(ct.named_transformers_['encoder'], 'get_feature_names_out'):
-#     transformed_columns = ct.named_transformers_['encoder'].get_feature_names_out(input_features=categorical_columns)
-# else:
-#     transformed_columns = ct.named_transformers_['encoder'].get_feature_names(categorical_columns)
-
-# Combine with numerical column names
-# transformed_columns = list(transformed_columns)
-# X = pd.DataFrame(X_transformed, columns=transformed_columns)
-
 # Splitting the data into training set and test set
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-# Previously used RCF whit gridsearch.
-# Did not getter better result than a SINGLE Xgboost
-# So we are using that instead
+# Start training time for RCF
+start_time = time.time()
+# readable format
+time_object_start = datetime.fromtimestamp(start_time)
+formatted_date = time_object_start.strftime('RCF Timer: '+'%H:%M:%S')
+print(formatted_date)
+
+# RCF Param
+param_grid_RCF = {
+    'n_estimators': [50, 100, 200],  # Number of trees in the forest
+    'max_depth': [None, 10, 20],  # Maximum depth of the trees
+    'min_samples_split': [2, 5, 10],  # Minimum samples required to split a node
+    'min_samples_leaf': [1, 2, 4],  # Minimum samples required at each leaf node
+    'max_features': ['sqrt', 'log2'],  # Number of features to consider for best split
+    'bootstrap': [True, False]  # Whether bootstrap samples are used when building trees
+}
+
+# Random Forest Classifier
+rf_classifier = RandomForestClassifier(random_state=0)
+
+# Create GridSearchCV
+grid_search_RCF = GridSearchCV(estimator=rf_classifier, param_grid=param_grid_RCF, cv=5, n_jobs=-1, verbose=2)
+
+# Fit the model to the data
+grid_search_RCF.fit(X_train, y_train)
+
+# Get the best parameters and the best score
+best_params_RCF = grid_search_RCF.best_params_
+best_score_RCF = grid_search_RCF.best_score_
+
+# Calculate training duration
+end_time = time.time()
+train_duration = end_time - start_time
+time_object_start = datetime.fromtimestamp(train_duration)
+formatted_date = time_object_start.strftime('%H:%M:%S')
+print("Training time: ", formatted_date)
+
+# RCF predictions
+y_pred_RCF = best_score_RCF.predict(X_test)
+print("R2 score", r2_score(y_test, y_pred_RCF))
+# And validation
+accuracy = accuracy_score(y_test, y_pred_RCF)
+print("Accuracy:", accuracy)
+print("Classification Report:")
+print(classification_report(y_test, y_pred_RCF))
+
+# Feature importance
+# Access feature importances
+feature_importances = best_score_RCF.feature_importances_
+# Match feature importances with column names
+feature_importance_dict = dict(zip(X.columns, feature_importances))
+# Sort feature importances by their values
+sorted_feature_importances = sorted(feature_importance_dict.items(), key=lambda x: x[1], reverse=True)
+
+# Display the feature importances
+for feature, importance in sorted_feature_importances:
+    print(f"Feature: {feature}, Importance: {importance}")
+
+# Dump or save the model
+dump(best_score_RCF, "models/bank_marketing_RCF.joblib")
+
 
 # Xgboot
 print("XGB turn... never used this before")
