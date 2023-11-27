@@ -1,3 +1,4 @@
+import csv
 import os
 from datetime import datetime
 import numpy as np
@@ -15,14 +16,12 @@ import time
 from joblib import dump, load
 from EditingData import FilteringData
 
-
 # Check if there is a file called whole_dataset
 if os.path.isfile("training_data/whole_dataset.csv") is False:
     # If not create it
     FilteringData()
 
 dataset = pd.read_csv("training_data/whole_dataset.csv")
-
 
 # Separate dataset
 X = dataset.iloc[:, :-1]
@@ -42,7 +41,7 @@ y = label_encoder.fit_transform(y.astype(str))
 
 # OneHotEncoding or dealing whit dummy dum dum values
 categorical_columns = ["job", "marital", "education", "default", "housing", "loan", "month",
-                       "poutcome", "age", "pdays", "balance","campaign", "previous"]
+                       "poutcome", "age", "pdays", "balance", "campaign", "previous"]
 
 ct = ColumnTransformer(transformers=[("encoder", OneHotEncoder(), categorical_columns)], remainder="passthrough")
 
@@ -58,14 +57,14 @@ X_test_TO_CSV.to_CSV.to_csv("training_data/X_test_data.csv", index=False)
 y_test_TO_CSV = y_test
 y_test_TO_CSV.to_CSV.to_csv("training_data/y_test_data.csv", index=False)
 
-
 # Thinking about making each model their own class to clear up the code
+# Also CPU goes prrrrrrrrrrrrrrrrrrrr
 
 # Start training time for RCF
 start_time = time.time()
 # readable format
 time_object_start = datetime.fromtimestamp(start_time)
-formatted_date = time_object_start.strftime('RCF Timer: '+'%H:%M:%S')
+formatted_date = time_object_start.strftime('RCF Timer: ' + '%H:%M:%S')
 print(formatted_date)
 
 # RCF Param
@@ -107,6 +106,12 @@ print("Accuracy:", accuracy)
 print("Classification Report:")
 print(classification_report(y_test, y_pred_RCF))
 
+# Dump or save the model
+dump(best_score_RCF, "models/bank_marketing_RCF.joblib")
+
+y_pred_RCF_To_CSV = y_pred_RCF
+y_pred_RCF_To_CSV.to_CSV("training_data/y_pred_RCF_data.csv", index=False)
+
 # Feature importance
 # Access feature importances
 feature_importances = best_score_RCF.feature_importances_
@@ -115,12 +120,18 @@ feature_importance_dict = dict(zip(X.columns, feature_importances))
 # Sort feature importances by their values
 sorted_feature_importances = sorted(feature_importance_dict.items(), key=lambda x: x[1], reverse=True)
 
+feature_importance = {}
 # Display the feature importances
 for feature, importance in sorted_feature_importances:
     print(f"Feature: {feature}, Importance: {importance}")
+    feature_importance.update({feature: importance})
 
-# Dump or save the model
-dump(best_score_RCF, "models/bank_marketing_RCF.joblib")
+field_names = ["Features", "Importance"]
+
+with open('Feature_Importance_RCF.csv', 'w') as csvfile:
+    writer = csv.DictWriter(csvfile, fieldnames=field_names)
+    writer.writeheader()
+    writer.writerows(feature_importance)
 
 
 # Xgboot
@@ -141,8 +152,8 @@ param_grid_xgb = {
     'colsample_bytree': [0.7, 0.8, 0.9],
     'reg_alpha': [0, 0.1, 1],
     'reg_lambda': [0, 1, 10],
-#    'device': ["cuda", "cuda", "cuda"],
-#    'tree_method': ["hist", "hist", "hist"]
+    #    'device': ["cuda", "cuda", "cuda"],
+    #    'tree_method': ["hist", "hist", "hist"]
 }
 # Initialize GridSearchCV for XGBClassifier
 grid_search_xgb = GridSearchCV(xgb.XGBClassifier(objective='binary:logistic', eval_metric='error'),
@@ -174,3 +185,6 @@ print(classification_report(y_test, y_pred_xgb))
 
 # Dump or save the model
 dump(best_estimator_xgb, "models/bank_marketing_XGB.joblib")
+
+y_pred_XGB_To_CSV = y_pred_xgb
+y_pred_XGB_To_CSV.to_CSV("training_data/y_pred_XGB_data.csv", index=False)
