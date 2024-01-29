@@ -52,10 +52,10 @@ X = ct.fit_transform(X)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
 # For excel
-X_test_TO_CSV = X_test
-X_test_TO_CSV.to_CSV.to_csv("training_data/X_test_data.csv", index=False)
-y_test_TO_CSV = y_test
-y_test_TO_CSV.to_CSV.to_csv("training_data/y_test_data.csv", index=False)
+# X_test_TO_CSV = X_test.values
+# X_test_TO_CSV.to_CSV.to_csv("training_data/X_test_data.csv", index=False)
+# y_test_TO_CSV = y_test.values
+# y_test_TO_CSV.to_CSV.to_csv("training_data/y_test_data.csv", index=False)
 
 # Thinking about making each model their own class to clear up the code
 # Also CPU goes prrrrrrrrrrrrrrrrrrrr
